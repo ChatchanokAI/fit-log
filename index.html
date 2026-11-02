@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>บันทึกฟิต</title>
+<style>
+  /* layout: one column (wider when the Fold is open); sticky status bar on top = the truth about Drive; bottom tab bar */
+  :root{--bg:#f6f2e8;--card:#fff;--ink:#1f2d2d;--muted:#667575;--line:#e3dccb;--accent:#2f7d32;--on:#fff;--hot:#c2531a;--blue:#2b6fc2;--ok:#1f7a45;--warn:#a86a00;--bad:#b3261e}
+  @media (prefers-color-scheme:dark){:root{--bg:#121a1a;--card:#1b2626;--ink:#e9f0ee;--muted:#93a5a2;--line:#2c3b3a;--accent:#7fd16a;--on:#0c1a0a;--hot:#ff9a62;--blue:#6aa7ee;--ok:#6fcf97;--warn:#f0b34a;--bad:#ff8a80}}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,"Noto Sans Thai","Sarabun",sans-serif;font-size:17px;line-height:1.5}
+  main{max-width:720px;margin:0 auto;padding:62px 14px 110px}
+  h1{font-size:1.3rem;margin:4px 0 8px}
+  h2{font-size:1.05rem;margin:22px 0 8px;display:flex;align-items:center;gap:8px}
+  h2::before{content:"";width:6px;height:18px;border-radius:3px;background:var(--accent)}
+  button{font:inherit;color:inherit;cursor:pointer}
+  input,select,textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 11px;min-height:46px;width:100%}
+  textarea{min-height:70px}
+  label.f{display:flex;flex-direction:column;gap:3px;font-size:.85rem;color:var(--muted)}
+  .hint{color:var(--muted);font-size:.85rem}
+  #bar{position:fixed;top:0;left:0;right:0;z-index:10;padding:8px 12px;font-size:.9rem;font-weight:600;display:flex;gap:10px;align-items:center;justify-content:center;text-align:center}
+  #bar.ok{background:var(--ok);color:#fff}#bar.warn{background:var(--warn);color:#fff}#bar.bad{background:var(--bad);color:#fff}#bar.idle{background:var(--line);color:var(--ink)}
+  #bar button{border:1px solid #fff8;background:#0003;color:#fff;border-radius:8px;padding:2px 10px;min-height:32px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+  .row{display:flex;gap:8px;align-items:center}.row>*{flex:1}
+  .btn{min-height:48px;border-radius:12px;border:1px solid var(--line);background:var(--card);padding:0 14px;font-weight:600}
+  .btn.primary{background:var(--accent);color:var(--on);border-color:var(--accent)}
+  .btn.small{min-height:40px;padding:0 10px}
+  .seg{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .seg button,.cats button{min-height:46px;border-radius:12px;border:2px solid var(--line);background:var(--bg);font-weight:600}
+  .seg button.on,.cats button.on{background:var(--accent);color:var(--on);border-color:var(--accent)}
+  .cats{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+  .big{font-size:1.6rem;font-weight:700;font-variant-numeric:tabular-nums}
+  .bar{height:12px;background:var(--line);border-radius:99px;overflow:hidden}.bar i{display:block;height:100%;background:var(--accent)}.bar i.over{background:var(--hot)}
+  .macro{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .macro div{background:var(--bg);border-radius:12px;padding:6px 8px;font-size:.85rem}
+  .macro b{display:block;font-variant-numeric:tabular-nums}
+  .chk{display:flex;align-items:center;gap:12px;min-height:52px;padding:6px 10px;border-radius:12px;background:var(--bg);cursor:pointer}
+  .chk input{width:28px;height:28px;min-height:0;flex:none;accent-color:var(--accent)}
+  .chk.on{outline:2px solid var(--accent)}
+  .item{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}.item:last-child{border-bottom:0}
+  .item .nm{flex:1;min-width:0}.item .nm small{display:block;color:var(--muted)}
+  .qty{display:flex;align-items:center;gap:4px}.qty button{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--bg);font-size:1.2rem}
+  .qty span{min-width:56px;text-align:center;font-variant-numeric:tabular-nums}
+  .x{background:none;border:0;color:var(--hot);font-size:1.2rem;min-width:40px;min-height:40px}
+  .sug{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;background:var(--bg)}
+  .note{border:1px dashed var(--line);border-radius:12px;padding:10px 12px;font-size:.85rem;color:var(--muted)}
+  .alert{border-radius:12px;padding:10px 12px;background:#a86a0022;border:1px solid var(--warn)}
+  table{width:100%;border-collapse:collapse;font-size:.85rem;font-variant-numeric:tabular-nums}th,td{padding:6px 4px;border-bottom:1px solid var(--line);text-align:center}th:first-child,td:first-child{text-align:left}
+  .pgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .pslot{background:var(--bg);border-radius:14px;padding:8px;display:flex;flex-direction:column;gap:6px;text-align:center}
+  .pslot img,.pempty{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:10px;background:#0002;display:grid;place-items:center;color:var(--muted);font-size:.85rem}
+  #tabs{position:fixed;left:0;right:0;bottom:0;z-index:9;display:grid;grid-template-columns:repeat(5,1fr);gap:4px;padding:8px 8px calc(8px + env(safe-area-inset-bottom));background:var(--card);border-top:1px solid var(--line)}
+  #tabs button{border:0;background:none;min-height:50px;border-radius:12px;color:var(--muted);font-size:.85rem}
+  #tabs button.on{background:color-mix(in srgb,var(--accent) 18%,var(--card));color:var(--accent);font-weight:700}
+  .ex-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)}.ex-row:last-child{border-bottom:0}
+</style>
+</head>
+<body>
+<div id="bar" class="idle">กำลังเริ่ม…</div>
+<main id="app"></main>
+<nav id="tabs"></nav>
+
+<script>
+/* ================= basics ================= */
+const TZ = 7 * 3600e3, DAY_START = 5 * 3600e3;            // Thai time; a new day starts at 05:00
+const pad = n => String(n).padStart(2, '0');
+const ymdUTC = ms => { const d = new Date(ms); return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate()); };
+const todayStr = () => ymdUTC(Date.now() + TZ - DAY_START);
+const parts = s => s.split('-').map(Number);
+const addDays = (s, n) => { const [y, m, d] = parts(s); return ymdUTC(Date.UTC(y, m - 1, d + n)); };
+const dow = s => { const [y, m, d] = parts(s); return new Date(Date.UTC(y, m - 1, d)).getUTCDay(); };
+const DN = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+const label = s => 'วัน' + DN[dow(s)] + ' ' + parts(s)[2] + '/' + parts(s)[1];
+const nowHM = () => { const d = new Date(Date.now() + TZ); return pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()); };
+const r0 = x => Math.round(x), r1 = x => Math.round(x * 10) / 10;
+const fmt = x => r0(x).toLocaleString('th-TH');
+const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* ใช้ในหน่วยความจำต่อ */ } };
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const k in attrs) {
+    if (k === 'class') e.className = attrs[k];
+    else if (k === 'value') e.value = attrs[k];
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), attrs[k]);
+    else if (attrs[k] !== false && attrs[k] != null) e.setAttribute(k, attrs[k]);
+  }
+  kids.flat(9).forEach(c => { if (c != null && c !== false) e.append(c.nodeType ? c : document.createTextNode(c)); });
+  return e;
+}
+
+/* ================= defaults (owner's plan) ================= */
+const DEF_FOODS = [
+  { id: 'whey', name: 'เวย์ BAAM Iso Soy', unit: 'สกู๊ป', base: 1, k: 65, p: 15, c: 0.5, f: 0.5, step: 0.5, dq: 1, est: false },
+  { id: 'oats', name: 'ข้าวโอ๊ต', unit: 'ก.', base: 100, k: 400, p: 12, c: 68, f: 10, step: 10, dq: 60, est: false },
+  { id: 'rice', name: 'ข้าวสวย (สุก)', unit: 'ก.', base: 100, k: 130, p: 2.7, c: 28, f: 0.3, step: 10, dq: 160, est: true },
+  { id: 'chicken', name: 'อกไก่ (ดิบ)', unit: 'ก.', base: 100, k: 115, p: 23, c: 0, f: 2, step: 10, dq: 200, est: true },
+  { id: 'shrimp', name: 'กุ้งปอกเปลือก (ดิบ)', unit: 'ก.', base: 100, k: 85, p: 18.5, c: 0.5, f: 1, step: 10, dq: 150, est: true },
+  { id: 'egg', name: 'ไข่ไก่', unit: 'ฟอง', base: 1, k: 72, p: 6.3, c: 0.4, f: 4.8, step: 1, dq: 1, est: true },
+  { id: 'duckegg', name: 'ไข่เป็ด', unit: 'ฟอง', base: 1, k: 130, p: 9.2, c: 1, f: 9.6, step: 1, dq: 1, est: true },
+  { id: 'wheyrtd', name: 'เวย์พร้อมดื่ม (ร้านสะดวกซื้อ)', unit: 'ขวด', base: 1, k: 160, p: 27, c: 8, f: 3, step: 1, dq: 1, est: true },
+  { id: 'meiji', name: 'นม Meiji High Protein ช็อกโกแลต', unit: 'มล.', base: 100, k: 60, p: 9.43, c: 3.71, f: 0.71, step: 50, dq: 350, est: false },
+  { id: 'creatine', name: 'ครีเอทีน (จดเฉยๆ)', unit: 'ก.', base: 5, k: 0, p: 0, c: 0, f: 0, step: 5, dq: 5, est: false },
+  { id: 'oil', name: 'น้ำมันรำข้าว', unit: 'ช้อนโต๊ะ', base: 1, k: 124, p: 0, c: 0, f: 14, step: 1, dq: 1, est: true },
+  { id: 'apple', name: 'แอปเปิ้ล Envy', unit: 'ลูก', base: 1, k: 90, p: 0.5, c: 22, f: 0.3, step: 1, dq: 1, est: true },
+  { id: 'jam', name: 'แยมสตรอเบอร์รี่ เบสท์ฟู้ดส์', unit: 'ช้อนโต๊ะ', base: 1, k: 30, p: 0, c: 8, f: 0, step: 1, dq: 1, est: false },
+  { id: 'bread', name: 'ขนมปังโฮลวีตฟาร์มเฮ้าส์', unit: 'แผ่น', base: 1, k: 70, p: 2.5, c: 12, f: 1.25, step: 1, dq: 2, est: false }
+];
+const defSettings = () => ({
+  targets: { rest: { k: 2040, p: 220, c: 173, f: 46 }, train: { k: 2340, p: 220, c: 230, f: 50 } },
+  rice: { rest: 160, train: 180 },
+  trainDays: [2, 4, 6, 0],
+  meals: [
+    { id: 'b', name: 'มื้อเช้า', items: [{ food: 'chicken', qty: 200 }, { food: 'rice', rice: true }] },
+    { id: 'd', name: 'มื้อเย็น', items: [{ food: 'shrimp', qty: 150 }, { food: 'rice', rice: true }, { food: 'duckegg', qty: 1 }, { food: 'egg', qty: 1 }, { food: 'oil', qty: 1 }] },
+    { id: 'l', name: 'มื้อสุดท้าย', items: [{ food: 'chicken', qty: 200 }, { food: 'rice', rice: true }] }
+  ],
+  foods: JSON.parse(JSON.stringify(DEF_FOODS)),
+  supps: [['s1', 'Omega-3', '3 เม็ด'], ['s3', 'Vitamin D3 + K2', ''], ['s4', 'Magnesium glycinate', ''], ['s5', 'Astaxanthin', '6 mg'], ['s6', 'CoQ10', '100 mg'], ['s7', 'Citrus bergamot', '1,200 mg'], ['s8', 'Hyaluronic acid + MSM', ''], ['s9', 'Zinc', '15 mg พร้อมมื้ออาหาร']],
+  cardio: [['walk', 'เดินชันบนลู่ 35 นาที (หลังเวท)'], ['bike', 'ปั่นจักรยาน 30 นาที (วันพัก)']]
+});
+const EXC = {
+  'อก': [['Incline bench press', 'เบนช์เพรสเอียง'], ['Incline dumbbell press', 'ดัมเบลเพรสเอียง'], ['Bench press', 'เบนช์เพรส'], ['Chest press machine', 'เครื่องดันอก'], ['Cable fly', 'เคเบิลฟลาย'], ['Pec deck', 'เครื่องบีบอก'], ['Dips', 'ดิป']],
+  'หลัง': [['Barbell row', 'บาร์เบลโรว์'], ['Lat pulldown', 'ดึงบาร์หน้า'], ['Seated row', 'โรว์เคเบิลนั่ง'], ['Seated row wide grip', 'โรว์นั่งจับกว้าง'], ['Face pull', 'เฟซพูล'], ['Back extension', 'แบ็คเอ็กซ์เทนชัน'], ['One-arm dumbbell row', 'ดัมเบลโรว์ข้างเดียว'], ['T-bar row', 'ทีบาร์โรว์'], ['Chest-supported row', 'โรว์พิงอก'], ['Pull-up', 'ดึงข้อ'], ['Straight-arm pulldown', 'เคเบิลแขนตรง'], ['Deadlift', 'เดดลิฟต์']],
+  'ไหล่': [['Shoulder press', 'ดันไหล่'], ['Lateral raise', 'ยกไหล่ข้าง'], ['Rear delt fly', 'ไหล่หลัง'], ['Reverse fly', 'เรวอร์สฟลาย'], ['Front raise', 'ยกไหล่หน้า']],
+  'ขา': [['Squat', 'สควอท'], ['Leg press', 'เลกเพรส'], ['Romanian deadlift', 'โรมาเนียนเดดลิฟต์'], ['Leg curl', 'เลกเคิร์ล'], ['Leg extension', 'เลกเอ็กซ์เทนชัน'], ['Calf raise', 'ยกส้นเท้า']],
+  'แขน': [['Bicep curl', 'เคิร์ลหน้าแขน'], ['Hammer curl', 'แฮมเมอร์เคิร์ล'], ['Triceps pushdown', 'กดเคเบิลหลังแขน'], ['Overhead triceps extension', 'หลังแขนเหนือหัว'], ['Skull crusher', 'สกัลครัชเชอร์']]
+};
+const CATS = Object.keys(EXC);
+
+/* ================= state + offline queue ================= */
+const S = { settings: defSettings(), days: {}, photos: {}, date: todayStr(), tab: 'today', undo: [], fill: false, pd: null, wk: todayStr(), cat: lsGet('fit-cat') || 'อก', pcache: {}, loaded: false };
+let TOKEN = lsGet('fit-token') || '';
+const Q = new Map();                       // key -> {key,action,args,ts}; mirrored to IndexedDB so a closed tab loses nothing
+let flushing = false, lastErr = '', lastOk = 0, timer = null, idbp = null;
+
+function idb() {
+  if (idbp) return idbp;
+  idbp = new Promise((res, rej) => {
+    try { const r = indexedDB.open('fit', 1); r.onupgradeneeded = () => r.result.createObjectStore('q', { keyPath: 'key' }); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }
+    catch (e) { rej(e); }
+  });
+  return idbp;
+}
+async function qPut(op) { Q.set(op.key, op); try { (await idb()).transaction('q', 'readwrite').objectStore('q').put(op); } catch (e) { /* หน่วยความจำอย่างเดียว */ } }
+async function qDel(key) { Q.delete(key); try { (await idb()).transaction('q', 'readwrite').objectStore('q').delete(key); } catch (e) { /* ข้าม */ } }
+async function qLoad() {
+  try {
+    const all = await new Promise((res, rej) => { idb().then(db => { const r = db.transaction('q').objectStore('q').getAll(); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }, rej); });
+    all.forEach(op => { Q.set(op.key, op); if (op.action === 'saveDay') S.days[op.args.date] = op.args.data; if (op.action === 'saveSettings') S.settings = op.args.settings; });
+  } catch (e) { /* ไม่มี IndexedDB */ }
+}
+const API_URL = 'https://script.google.com/macros/s/AKfycbzwjaPO4zYob_esG7dc2WkelRKLx_ey8a3EyOEgKr1ESLavaMAh330keIYMWY7FWBcKTg/exec';
+// หน้านี้ถูกเสิร์ฟจากที่อื่น (GitHub Pages) แล้วคุยกับตู้กลาง Apps Script ด้วย POST text/plain (ไม่มี preflight)
+function call(action, payload) {
+  const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 60000);
+  return fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ token: TOKEN, action, payload }), signal: ctl.signal })
+    .then(r => r.json())
+    .then(r => (r && r.ok) ? r : Promise.reject(new Error((r && r.error) || 'ตอบกลับผิดปกติ')))
+    .catch(e => { throw (e && e.name === 'TypeError' || e && e.name === 'AbortError') ? new Error('เชื่อมตู้กลางไม่ได้ (ไม่มีเน็ตหรือช้าเกินไป)') : (e instanceof Error ? e : new Error(String(e))); })
+    .finally(() => clearTimeout(to));
+}
+async function flush() {
+  if (flushing) return;
+  flushing = true; bar();
+  try {
+    while (Q.size) {
+      const op = [...Q.values()].sort((a, b) => a.ts - b.ts)[0];
+      await call(op.action, op.args);
+      const cur = Q.get(op.key);
+      if (cur && cur.ts === op.ts) await qDel(op.key);     // keep it if edited again while sending
+      lastOk = Date.now(); lastErr = '';
+    }
+  } catch (e) {
+    lastErr = e.message;
+    if (/รหัสลับ/.test(lastErr)) { TOKEN = ''; lsSet('fit-token', ''); render(); }
+    clearTimeout(timer); timer = setTimeout(flush, 20000);
+  }
+  flushing = false; bar();
+}
+function enqueue(key, action, args) { return qPut({ key, action, args, ts: Date.now() }).then(() => { bar(); clearTimeout(S._deb); S._deb = setTimeout(flush, 800); }); }
+function bar() {
+  const b = document.getElementById('bar'); b.replaceChildren();
+  let cls = 'idle', msg;
+  if (!TOKEN) msg = 'ใส่รหัสลับเพื่อเริ่มใช้งาน';
+  else if (Q.size && lastErr) { cls = 'bad'; msg = '⚠ ยังไม่ถึง Drive (' + Q.size + ' รายการรอส่ง) · ' + lastErr + ' · เก็บไว้ในเครื่องแล้ว จะส่งซ้ำเอง'; }
+  else if (Q.size || flushing) { cls = 'warn'; msg = 'กำลังส่งขึ้น Drive… (' + Q.size + ' รายการ)'; }
+  else if (lastOk) { cls = 'ok'; const d = new Date(lastOk + TZ); msg = '✓ ส่งถึง Drive แล้ว ' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()); }
+  else if (lastErr) { cls = 'bad'; msg = '⚠ ' + lastErr; }
+  else msg = S.loaded ? 'โหลดข้อมูลจาก Drive แล้ว ยังไม่มีอะไรรอส่ง' : 'กำลังโหลด…';
+  b.className = cls; b.append(msg);
+  if (Q.size && !flushing) b.append(el('button', { onclick: flush }, 'ส่งตอนนี้'));
+}
+
+/* ================= data helpers ================= */
+const foodById = id => S.settings.foods.find(f => f.id === id);
+const newDay = date => ({ date, type: S.settings.trainDays.includes(dow(date)) ? 'train' : 'rest', foods: [], meals: {}, supps: {}, cardio: {}, sets: [], weight: '', waist: '', updated: '' });
+function day(date) { date = date || S.date; if (!S.days[date]) S.days[date] = newDay(date); const d = S.days[date]; d.foods = d.foods || []; d.meals = d.meals || {}; d.supps = d.supps || {}; d.cardio = d.cardio || {}; d.sets = d.sets || []; return d; }
+function touch(d) { d = d || day(); d.updated = new Date(Date.now() + TZ).toISOString().replace('Z', '+07:00'); return enqueue('day:' + d.date, 'saveDay', { date: d.date, data: d }); }
+function snap() { const d = day(); S.undo.push(JSON.stringify({ date: d.date, type: d.type, foods: d.foods, meals: d.meals })); if (S.undo.length > 30) S.undo.shift(); }
+function undo() { const s = S.undo.pop(); if (!s) return; const o = JSON.parse(s), d = day(o.date); d.type = o.type; d.foods = o.foods; d.meals = o.meals; touch(d); render(); }
+const sum = d => d.foods.reduce((a, e) => { a.k += e.qty * e.u.k; a.p += e.qty * e.u.p; a.c += e.qty * e.u.c; a.f += e.qty * e.u.f; return a; }, { k: 0, p: 0, c: 0, f: 0 });
+function entryFrom(food, qty, extra) { const b = food.base || 1; return Object.assign({ fid: food.id, name: food.name, unit: food.unit, qty, step: food.step || 1, u: { k: food.k / b, p: food.p / b, c: food.c / b, f: food.f / b }, t: nowHM() }, extra || {}); }
+function addFood(food, qty, extra) { snap(); const d = day(); d.foods.push(entryFrom(food, qty, extra)); touch(d); render(); }
+function toggleMeal(m) {
+  snap(); const d = day();
+  if (d.meals[m.id]) { d.foods = d.foods.filter(e => e.meal !== m.id); delete d.meals[m.id]; }
+  else { m.items.forEach(it => { const f = foodById(it.food); if (f) d.foods.push(entryFrom(f, it.rice ? S.settings.rice[d.type] : it.qty, { meal: m.id, rice: !!it.rice })); }); d.meals[m.id] = true; }
+  touch(d); render();
+}
+function setType(t) { snap(); const d = day(); d.type = t; d.foods.forEach(e => { if (e.rice && e.meal) e.qty = S.settings.rice[t]; }); touch(d); render(); }
+
+/* ================= today ================= */
+function viewToday(v) {
+  const d = day(), tg = S.settings.targets[d.type], tot = sum(d);
+  v.append(el('div', { class: 'row' },
+    el('button', { class: 'btn', onclick: () => { S.date = addDays(S.date, -1); render(); } }, '‹'),
+    el('input', { type: 'date', value: S.date, 'aria-label': 'เลือกวัน', onchange: e => { if (e.target.value) { S.date = e.target.value; render(); } } }),
+    el('button', { class: 'btn', onclick: () => { S.date = addDays(S.date, 1); render(); } }, '›')));
+  v.append(el('div', { class: 'hint', style: 'text-align:center' }, label(S.date) + (S.date === todayStr() ? ' (วันนี้ · วันใหม่เริ่มตี 5)' : '')));
+  v.append(el('div', { class: 'seg', style: 'margin-top:8px' },
+    el('button', { class: d.type === 'rest' ? 'on' : '', onclick: () => setType('rest') }, 'วันพัก'),
+    el('button', { class: d.type === 'train' ? 'on' : '', onclick: () => setType('train') }, 'วันฝึก')));
+  const lastP = Object.keys(S.photos).sort().pop();
+  if (!lastP || addDays(lastP, 14) <= todayStr()) v.append(el('div', { class: 'alert', style: 'margin-top:8px' }, lastP ? '📷 ครบ 14 วันนับจากรอบล่าสุด (' + label(lastP) + ') ถึงเวลาถ่ายรูปปั้นหุ่นแล้ว' : '📷 ยังไม่เคยถ่ายรูปปั้นหุ่น ถ่ายชุดแรกได้ที่แท็บ "ปั้นหุ่น"'));
+  const left = tg.k - tot.k;
+  const mac = (nm, v1, t1) => el('div', {}, nm + ' ', el('b', {}, r0(v1) + ' / ' + t1 + ' ก.'), el('div', { class: 'bar' }, el('i', { class: v1 > t1 ? 'over' : '', style: 'width:' + Math.min(100, v1 / t1 * 100) + '%' })));
+  v.append(el('h2', {}, 'ยอดวันนี้'), el('div', { class: 'card' },
+    el('div', {}, el('span', { class: 'big' }, fmt(tot.k)), ' / ' + fmt(tg.k) + ' kcal · ', el('b', { style: 'color:' + (left < 0 ? 'var(--hot)' : 'var(--ok)') }, left >= 0 ? 'เหลือ ' + fmt(left) : 'เกิน ' + fmt(-left))),
+    el('div', { class: 'bar' }, el('i', { class: tot.k > tg.k ? 'over' : '', style: 'width:' + Math.min(100, tot.k / tg.k * 100) + '%' })),
+    el('div', { class: 'macro' }, mac('โปรตีน', tot.p, tg.p), mac('คาร์บ', tot.c, tg.c), mac('ไขมัน', tot.f, tg.f)),
+    el('div', { class: 'row' },
+      el('button', { class: 'btn primary', onclick: () => { S.fill = !S.fill; render(); } }, S.fill ? 'ปิดเติมให้ครบ' : 'เติมให้ครบ'),
+      el('button', { class: 'btn', disabled: S.undo.length ? null : 'disabled', onclick: undo }, '↶ ย้อนกลับ'))));
+  if (S.fill) v.append(fillPanel(tg, tot));
+  const mc = S.settings.meals.filter(m => d.meals[m.id]).length;
+  v.append(el('h2', {}, 'มื้อประจำ ' + mc + '/' + S.settings.meals.length), el('div', { class: 'card' }, S.settings.meals.map(m =>
+    el('label', { class: 'chk' + (d.meals[m.id] ? ' on' : '') }, el('input', { type: 'checkbox', checked: d.meals[m.id] ? 'checked' : null, onchange: () => toggleMeal(m) }),
+      el('span', {}, el('b', {}, m.name), el('div', { class: 'hint' }, m.items.map(it => { const f = foodById(it.food); return f ? f.name.replace(/ \(.*\)/, '') + ' ' + (it.rice ? S.settings.rice[d.type] : it.qty) + f.unit : ''; }).join(' + ')))))));
+  v.append(el('h2', {}, 'อาหารที่กินวันนี้'), foodList(d), addFoodBox());
+  v.append(el('h2', {}, 'อาหารเสริม'), el('div', { class: 'card' }, S.settings.supps.map(([id, nm, ds]) =>
+    el('label', { class: 'chk' + (d.supps[id] ? ' on' : '') }, el('input', { type: 'checkbox', checked: d.supps[id] ? 'checked' : null, onchange: e => { if (e.target.checked) d.supps[id] = true; else delete d.supps[id]; touch(d); render(); } }), el('span', {}, el('b', {}, nm), ds ? el('div', { class: 'hint' }, ds) : null)))));
+  v.append(el('h2', {}, 'คาร์ดิโอ'), el('div', { class: 'card' }, S.settings.cardio.map(([id, nm]) =>
+    el('label', { class: 'chk' + (d.cardio[id] ? ' on' : '') }, el('input', { type: 'checkbox', checked: d.cardio[id] ? 'checked' : null, onchange: e => { d.cardio[id] = e.target.checked; touch(d); render(); } }), el('b', {}, nm)))));
+  const num = (k, lab) => el('label', { class: 'f' }, lab, el('input', { type: 'number', inputmode: 'decimal', step: '0.1', value: d[k] === '' ? '' : d[k], onchange: e => { d[k] = e.target.value === '' ? '' : Number(e.target.value); touch(d); render(); } }));
+  v.append(el('h2', {}, 'ร่างกาย'), el('div', { class: 'card' }, el('div', { class: 'row' }, num('weight', 'น้ำหนักเช้า (กก.)'), num('waist', 'รอบเอว (นิ้ว)'))));
+  v.append(saveBtn());
+}
+function saveBtn() {
+  const b = el('button', { class: 'btn primary', style: 'width:100%;margin-top:16px', onclick: async () => {
+    b.disabled = true; b.textContent = 'กำลังส่ง…'; touch(day()); await flush(); b.disabled = false;
+    b.textContent = Q.size ? '⚠ ยังไม่ถึง Drive — ดูแถบด้านบน' : '✓ ส่งถึง Drive แล้ว';
+    setTimeout(() => { if (b.isConnected) b.textContent = 'บันทึกวันนี้ขึ้น Drive'; }, 4000);
+  } }, 'บันทึกวันนี้ขึ้น Drive');
+  return b;
+}
+function foodList(d) {
+  if (!d.foods.length) return el('div', { class: 'note' }, 'ยังไม่มีอาหารวันนี้ ติ๊กมื้อประจำด้านบน หรือเพิ่มด้านล่าง');
+  return el('div', { class: 'card' }, d.foods.map((e, i) => el('div', { class: 'item' },
+    el('div', { class: 'nm' }, e.name, el('small', {}, r0(e.qty * e.u.k) + ' kcal · P ' + r1(e.qty * e.u.p) + ' · C ' + r1(e.qty * e.u.c) + ' · F ' + r1(e.qty * e.u.f) + (e.t ? ' · ' + e.t : '') + (e.meal ? ' · มื้อประจำ' : ''))),
+    el('div', { class: 'qty' },
+      el('button', { 'aria-label': 'ลด', onclick: () => { snap(); e.qty = Math.max(0, r1(e.qty - e.step)); touch(d); render(); } }, '−'),
+      el('span', {}, r1(e.qty) + ' ' + e.unit),
+      el('button', { 'aria-label': 'เพิ่ม', onclick: () => { snap(); e.qty = r1(e.qty + e.step); touch(d); render(); } }, '+')),
+    el('button', { class: 'x', 'aria-label': 'ลบ', onclick: () => { snap(); d.foods.splice(i, 1); if (e.meal && !d.foods.some(x => x.meal === e.meal)) delete d.meals[e.meal]; touch(d); render(); } }, '✕'))));
+}
+function addFoodBox() {
+  const sel = el('select', { 'aria-label': 'เลือกอาหาร' }, S.settings.foods.map(f => el('option', { value: f.id }, f.name + (f.est ? ' (ประมาณ)' : ''))));
+  const q = el('input', { type: 'number', inputmode: 'decimal', step: '0.5', 'aria-label': 'จำนวน' });
+  const unit = el('span', { class: 'hint' });
+  const sync = () => { const f = foodById(sel.value); if (f) { q.value = f.dq; unit.textContent = f.unit; } };
+  sel.onchange = sync; sync();
+  const cn = el('input', { placeholder: 'ชื่ออาหาร เช่น ข้าวมันไก่' }), ck = el('input', { type: 'number', inputmode: 'decimal', placeholder: 'kcal' }), cp = el('input', { type: 'number', inputmode: 'decimal', placeholder: 'P ก.' }), cc = el('input', { type: 'number', inputmode: 'decimal', placeholder: 'C ก.' }), cf = el('input', { type: 'number', inputmode: 'decimal', placeholder: 'F ก.' });
+  const keep = el('input', { type: 'checkbox', style: 'width:24px;min-height:0;height:24px' });
+  return el('div', { class: 'card', style: 'margin-top:8px' },
+    el('b', {}, 'เพิ่มจากรายการ'), sel, el('div', { class: 'row' }, q, unit, el('button', { class: 'btn primary', onclick: () => { const f = foodById(sel.value); const n = Number(q.value); if (f && n > 0) addFood(f, n); } }, '+ เพิ่ม')),
+    el('b', {}, 'เพิ่มอาหารเอง (ค่าของจานที่กิน)'), cn, el('div', { class: 'row' }, ck, cp, cc, cf),
+    el('label', { class: 'row', style: 'gap:8px' }, keep, el('span', { class: 'hint' }, 'บันทึกไว้ใช้ซ้ำ')),
+    el('button', { class: 'btn', onclick: () => {
+      if (!cn.value.trim() || !(Number(ck.value) >= 0) || ck.value === '') return;
+      const f = { id: 'u' + Date.now(), name: cn.value.trim(), unit: 'จาน', base: 1, k: Number(ck.value), p: Number(cp.value) || 0, c: Number(cc.value) || 0, f: Number(cf.value) || 0, step: 0.5, dq: 1, est: false };
+      if (keep.checked) { S.settings.foods.push(f); enqueue('settings', 'saveSettings', { settings: S.settings }); }
+      addFood(f, 1);
+    } }, '+ เพิ่มอาหารเอง'));
+}
+const roundTo = (x, n) => Math.max(n, Math.round(x / n) * n);
+function fillPanel(tg, tot) {
+  const gap = { k: tg.k - tot.k, p: tg.p - tot.p, c: tg.c - tot.c };
+  const out = [], add = (id, qty) => { const f = foodById(id); if (f && qty > 0) out.push([f, qty]); };
+  if (gap.p > 8) { add('whey', Math.min(4, Math.max(0.5, Math.round(gap.p / 15 * 2) / 2))); add('chicken', roundTo(Math.min(300, gap.p / 0.23), 10)); }
+  if (gap.c > 12) { add('oats', roundTo(Math.min(120, gap.c / 0.68), 10)); add('rice', roundTo(Math.min(300, gap.c / 0.28), 10)); add('bread', Math.min(6, Math.max(1, Math.round(gap.c / 12)))); }
+  if (!out.length && gap.k > 150) { add('rice', roundTo(Math.min(300, gap.k / 1.3), 10)); add('oats', roundTo(Math.min(120, gap.k / 4), 10)); }
+  const head = 'ขาด ' + (gap.k > 0 ? fmt(gap.k) : 0) + ' kcal · โปรตีน ' + (gap.p > 0 ? r0(gap.p) : 0) + ' ก. · คาร์บ ' + (gap.c > 0 ? r0(gap.c) : 0) + ' ก.';
+  return el('div', { class: 'card', style: 'margin-top:8px' }, el('b', {}, head),
+    out.length ? out.map(([f, qty]) => el('div', { class: 'sug' },
+      el('span', {}, f.name.replace(/ \(.*\)/, '') + ' ' + qty + ' ' + f.unit, el('div', { class: 'hint' }, '+' + r0(qty * f.k / f.base) + ' kcal · P ' + r1(qty * f.p / f.base) + ' · C ' + r1(qty * f.c / f.base))),
+      el('button', { class: 'btn small primary', onclick: () => addFood(f, qty) }, '+ เพิ่ม'))) : el('div', { class: 'hint' }, gap.k < -50 ? 'เกินเป้าแล้ว ไม่ต้องเติม' : 'ครบตามเป้าแล้ว'),
+    el('div', { class: 'hint' }, 'เพิ่มแล้วไม่เอา กด "↶ ย้อนกลับ" ได้'));
+}
+
+/* ================= training sets ================= */
+function lastSessions(ex) { return Object.keys(S.days).filter(k => k < S.date && (S.days[k].sets || []).some(s => s.ex === ex)).sort().slice(-3).reverse(); }
+function viewTrain(v) {
+  const d = day();
+  const sel = el('select', { 'aria-label': 'ท่า' }, el('option', { value: '' }, '— เลือกท่าหมวด' + S.cat + ' —'), EXC[S.cat].map(([n, th]) => el('option', { value: n }, n + ' · ' + th)), el('option', { value: '__c' }, '+ พิมพ์ชื่อท่าเอง'));
+  const cu = el('input', { placeholder: 'พิมพ์ชื่อท่า', style: 'display:none' });
+  const kg = el('input', { type: 'number', inputmode: 'decimal', step: '0.5', 'aria-label': 'น้ำหนัก' }), rp = el('input', { type: 'number', inputmode: 'numeric', 'aria-label': 'จำนวนครั้ง' });
+  const rpe = el('select', { 'aria-label': 'ความหนัก' }, [6, 7, 8, 9, 10].map(n => el('option', { value: n }, n === 8 ? '8 (เหลืออีก 2 ครั้ง)' : n === 9 ? '9 (เหลืออีก 1 ครั้ง)' : n === 10 ? '10 (สุดแรง)' : String(n))));
+  rpe.value = '8';
+  const hist = el('div', { class: 'hint' });
+  const exv = () => sel.value === '__c' ? cu.value.trim() : sel.value;
+  const upd = () => {
+    const ex = exv(); hist.replaceChildren(); const ds = ex ? lastSessions(ex) : [];
+    if (ds.length) { hist.append(el('b', {}, 'ประวัติท่านี้ (กก. × ครั้ง)')); ds.forEach(k => hist.append(el('div', {}, label(k) + ': ' + S.days[k].sets.filter(s => s.ex === ex).map(s => s.kg + '×' + s.reps + ' (หนัก ' + s.rpe + ')').join(' · ')))); }
+  };
+  sel.onchange = () => { cu.style.display = sel.value === '__c' ? '' : 'none'; upd(); const ex = exv(), ds = ex ? lastSessions(ex) : []; if (ds.length) { const ss = S.days[ds[0]].sets.filter(s => s.ex === ex); const top = ss.reduce((a, b) => (b.kg > a.kg || (b.kg === a.kg && b.reps > a.reps)) ? b : a); kg.value = top.kg; rp.value = top.reps; } };
+  cu.oninput = upd;
+  const last = d.sets[d.sets.length - 1];
+  if (last && last.cat === S.cat) { if ([...sel.options].some(o => o.value === last.ex)) sel.value = last.ex; kg.value = last.kg; rp.value = last.reps; rpe.value = String(last.rpe); upd(); }
+  const stepper = (inp, ds) => el('div', { class: 'row', style: 'margin-top:4px' }, ds.map(x => el('button', { class: 'btn small', onclick: () => { inp.value = Math.max(0, (Number(inp.value) || 0) + x); } }, (x > 0 ? '+' : '') + x)));
+  v.append(el('div', { class: 'hint', style: 'text-align:center' }, label(S.date) + ' · ' + (d.type === 'train' ? 'วันฝึก' : 'วันพัก')));
+  v.append(el('h2', {}, 'วันนี้เล่นหมวดไหน'), el('div', { class: 'cats' }, CATS.map(c => el('button', { class: c === S.cat ? 'on' : '', onclick: () => { S.cat = c; lsSet('fit-cat', c); render(); } }, c))));
+  v.append(el('h2', {}, 'บันทึกเซ็ต'), el('div', { class: 'card' }, el('label', { class: 'f' }, 'ท่า', sel), cu, hist,
+    el('div', { class: 'row' }, el('div', {}, el('label', { class: 'f' }, 'น้ำหนัก (กก.)', kg), stepper(kg, [-5, -2.5, 2.5, 5])), el('div', {}, el('label', { class: 'f' }, 'จำนวนครั้ง', rp), stepper(rp, [-1, 1])), el('label', { class: 'f' }, 'ความหนัก', rpe)),
+    el('button', { class: 'btn primary', onclick: () => {
+      const ex = exv(), w = Number(kg.value), r = Number(rp.value);
+      if (!ex || !(r > 0) || kg.value === '') return;
+      d.sets.push({ ex, cat: S.cat, kg: w, reps: r, rpe: Number(rpe.value), t: nowHM() }); touch(d); render();
+    } }, '+ บันทึกเซ็ต')));
+  const by = {}; d.sets.forEach((s, i) => (by[s.ex] = by[s.ex] || []).push([s, i]));
+  v.append(el('h2', {}, 'วันนี้ฝึกไปแล้ว'));
+  const names = Object.keys(by);
+  if (!names.length) v.append(el('div', { class: 'note' }, 'ยังไม่มีเซ็ตของวันนี้'));
+  names.forEach(n => v.append(el('div', { class: 'card', style: 'margin-bottom:8px' }, el('b', {}, n),
+    by[n].map(([s, i], k) => el('div', { class: 'ex-row' }, el('span', {}, 'เซ็ต ' + (k + 1) + ': ' + s.kg + ' กก. × ' + s.reps + ' · หนัก ' + s.rpe), el('button', { class: 'x', 'aria-label': 'ลบเซ็ต', onclick: () => { d.sets.splice(i, 1); touch(d); render(); } }, '✕'))),
+    el('div', { class: 'hint' }, 'ปริมาณรวม ' + fmt(by[n].reduce((a, [s]) => a + s.kg * s.reps, 0)) + ' กก.'))));
+  v.append(saveBtn());
+}
+
+/* ================= week ================= */
+function viewWeek(v) {
+  const mon = addDays(S.wk, -((dow(S.wk) + 6) % 7)), prev = addDays(mon, -7);
+  const wk = i => addDays(mon, i), avg = (start) => { const w = []; for (let i = 0; i < 7; i++) { const d = S.days[addDays(start, i)]; if (d && d.weight !== '' && d.weight != null) w.push(Number(d.weight)); } return w.length ? w.reduce((a, b) => a + b, 0) / w.length : null; };
+  const a = avg(mon), b = avg(prev);
+  v.append(el('div', { class: 'row' }, el('button', { class: 'btn', onclick: () => { S.wk = addDays(S.wk, -7); render(); } }, '‹'), el('div', { class: 'hint', style: 'text-align:center' }, label(mon) + ' – ' + label(addDays(mon, 6))), el('button', { class: 'btn', onclick: () => { S.wk = addDays(S.wk, 7); render(); } }, '›')));
+  v.append(el('div', { class: 'card', style: 'margin-top:8px' }, el('div', {}, 'น้ำหนักเฉลี่ยสัปดาห์นี้ ', el('b', {}, a == null ? '—' : r1(a) + ' กก.')), el('div', { class: 'hint' }, 'สัปดาห์ก่อน ' + (b == null ? '—' : r1(b) + ' กก.') + (a != null && b != null ? ' · ต่างกัน ' + (a - b > 0 ? '+' : '') + r1(a - b) + ' กก.' : ''))));
+  const rows = []; for (let i = 0; i < 7; i++) { const k = wk(i), d = S.days[k]; const t = d ? sum(d) : null;
+    rows.push(el('tr', {}, el('td', {}, label(k)), el('td', {}, d && d.weight !== '' ? d.weight : '—'), el('td', {}, t && d.foods.length ? fmt(t.k) : '—'), el('td', {}, t && d.foods.length ? r0(t.p) : '—'), el('td', {}, d ? Object.keys(d.meals || {}).length + '/3' : '—'), el('td', {}, d ? (d.type === 'train' ? 'ฝึก' : 'พัก') + (d.sets && d.sets.length ? ' ' + d.sets.length + 'เซ็ต' : '') + (Object.values(d.cardio || {}).some(Boolean) ? ' +คาร์ดิโอ' : '') : '—'))); }
+  v.append(el('h2', {}, 'รายวัน'), el('div', { class: 'card', style: 'overflow-x:auto' }, el('table', {}, el('tr', {}, ['วัน', 'น้ำหนัก', 'kcal', 'โปรตีน', 'มื้อ', 'ฝึก'].map(h => el('th', {}, h))), rows)));
+}
+
+/* ================= body photos ================= */
+const ANG = [['front', 'หน้า'], ['back', 'หลัง'], ['left', 'ข้างซ้าย'], ['right', 'ข้างขวา']];
+function shrink(file, max) {
+  return new Promise((res, rej) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => { const k = Math.min(1, (max || 1600) / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url); res(c.toDataURL('image/jpeg', 0.85)); };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('อ่านรูปไม่ได้')); };
+    img.src = url;
+  });
+}
+function viewPhotos(v) {
+  const pd = S.pd || (S.pd = { date: todayStr(), imgs: {}, weight: '', waist: '', bf: '', note: '' });
+  const f = (k, lab, type) => el('label', { class: 'f' }, lab, el(type === 'text' ? 'textarea' : 'input', { type: type === 'text' ? null : 'number', inputmode: 'decimal', step: '0.1', value: pd[k], onchange: e => { pd[k] = e.target.value; } }));
+  v.append(el('h2', {}, 'ถ่ายชุดใหม่'), el('div', { class: 'card' },
+    el('label', { class: 'f' }, 'วันที่ถ่าย', el('input', { type: 'date', value: pd.date, onchange: e => { if (e.target.value) pd.date = e.target.value; } })),
+    el('div', { class: 'pgrid' }, ANG.map(([a, l]) => { const inp = el('input', { type: 'file', accept: 'image/*', style: 'display:none', onchange: async () => { try { pd.imgs[a] = await shrink(inp.files[0]); render(); } catch (e) { lastErr = e.message; bar(); } } });
+      return el('div', { class: 'pslot' }, pd.imgs[a] ? el('img', { src: pd.imgs[a], alt: l }) : el('div', { class: 'pempty' }, 'ยังไม่มีรูป'), el('b', {}, l), el('button', { class: 'btn small primary', onclick: () => inp.click() }, pd.imgs[a] ? 'เปลี่ยนรูป' : 'ถ่าย/เลือกรูป'), inp); })),
+    el('div', { class: 'row' }, f('weight', 'น้ำหนัก (กก.)'), f('waist', 'รอบเอว (นิ้ว)'), f('bf', 'ไขมัน % (ถ้าวัดได้)')), f('note', 'โน้ต', 'text'),
+    el('button', { class: 'btn primary', onclick: async () => {
+      const got = Object.keys(pd.imgs); if (!got.length && pd.weight === '' && pd.waist === '' && pd.bf === '' && !pd.note) return;
+      for (const a of got) await enqueue('photo:' + pd.date + ':' + a, 'savePhoto', { date: pd.date, angle: a, dataUrl: pd.imgs[a] });
+      const info = { date: pd.date, weight: pd.weight === '' ? '' : Number(pd.weight), waist: pd.waist === '' ? '' : Number(pd.waist), bf: pd.bf === '' ? '' : Number(pd.bf), note: pd.note || '' };
+      await enqueue('pinfo:' + pd.date, 'savePhotoInfo', { date: pd.date, info });
+      S.photos[pd.date] = { date: pd.date, info, angles: [...new Set([...(S.photos[pd.date] ? S.photos[pd.date].angles : []), ...got])] };
+      S.pd = null; render(); flush();
+    } }, 'ส่งชุดนี้ขึ้น Drive')));
+  v.append(el('h2', {}, 'ชุดรูปที่มี'));
+  const ds = Object.keys(S.photos).sort().reverse();
+  if (!ds.length) v.append(el('div', { class: 'note' }, 'ยังไม่มีชุดรูปใน Drive'));
+  ds.forEach(k => { const p = S.photos[k], box = el('div', { class: 'pgrid' });
+    v.append(el('div', { class: 'card', style: 'margin-bottom:8px' }, el('b', {}, label(k) + ' · ' + p.angles.length + '/4 มุม'), el('div', { class: 'hint' }, ['น้ำหนัก', 'weight', 'กก.'].length && [p.info.weight !== '' && p.info.weight != null ? 'น้ำหนัก ' + p.info.weight + ' กก.' : '', p.info.waist !== '' && p.info.waist != null ? 'เอว ' + p.info.waist + ' นิ้ว' : '', p.info.bf !== '' && p.info.bf != null ? 'ไขมัน ' + p.info.bf + '%' : '', p.info.note || ''].filter(Boolean).join(' · ')),
+      el('button', { class: 'btn small', onclick: async e => { e.target.disabled = true; e.target.textContent = 'กำลังโหลดรูป…'; for (const a of p.angles) { const key = k + a; try { if (!S.pcache[key]) S.pcache[key] = (await call('photoGet', { date: k, angle: a })).dataUrl; box.append(el('div', { class: 'pslot' }, el('img', { src: S.pcache[key], alt: a }), el('b', {}, ANG.find(x => x[0] === a)[1]))); } catch (er) { lastErr = er.message; bar(); } } e.target.remove(); } }, 'ดูรูป'), box)); });
+}
+
+/* ================= settings ================= */
+function viewSettings(v) {
+  const st = S.settings;
+  const n = (obj, k, lab) => el('label', { class: 'f' }, lab, el('input', { type: 'number', inputmode: 'decimal', value: obj[k], onchange: e => { obj[k] = Number(e.target.value); } }));
+  v.append(el('h2', {}, 'เป้าต่อวัน'));
+  [['rest', 'วันพัก'], ['train', 'วันฝึก']].forEach(([t, nm]) => v.append(el('div', { class: 'card', style: 'margin-bottom:8px' }, el('b', {}, nm), el('div', { class: 'row' }, n(st.targets[t], 'k', 'kcal'), n(st.targets[t], 'p', 'โปรตีน'), n(st.targets[t], 'c', 'คาร์บ'), n(st.targets[t], 'f', 'ไขมัน')))));
+  v.append(el('h2', {}, 'ข้าวสวยในมื้อประจำ (ก.)'), el('div', { class: 'card' }, el('div', { class: 'row' }, n(st.rice, 'rest', 'วันพัก'), n(st.rice, 'train', 'วันฝึก'))));
+  v.append(el('h2', {}, 'มื้อประจำ (แก้จำนวน)'));
+  st.meals.forEach(m => v.append(el('div', { class: 'card', style: 'margin-bottom:8px' }, el('b', {}, m.name), m.items.filter(it => !it.rice).map(it => { const fd = foodById(it.food); return fd ? n(it, 'qty', fd.name + ' (' + fd.unit + ')') : null; }))));
+  v.append(el('h2', {}, 'รายการอาหาร (ค่าต่อหน่วยฐาน)'));
+  st.foods.forEach((fd, i) => v.append(el('div', { class: 'card', style: 'margin-bottom:8px' },
+    el('label', { class: 'f' }, 'ชื่อ', el('input', { value: fd.name, onchange: e => { fd.name = e.target.value; } })),
+    el('div', { class: 'row' }, n(fd, 'base', 'ต่อ (' + fd.unit + ')'), n(fd, 'k', 'kcal'), n(fd, 'p', 'P'), n(fd, 'c', 'C'), n(fd, 'f', 'F')),
+    el('div', { class: 'row' }, el('label', { class: 'chk' }, el('input', { type: 'checkbox', checked: fd.est ? 'checked' : null, onchange: e => { fd.est = e.target.checked; } }), 'ค่าประมาณ'), el('button', { class: 'btn small', onclick: () => { if (confirm('ลบ "' + fd.name + '" ออกจากรายการ? (ของที่กินไปแล้วไม่หาย)')) { st.foods.splice(i, 1); render(); } } }, 'ลบ')))));
+  v.append(el('button', { class: 'btn', onclick: () => { st.foods.push({ id: 'u' + Date.now(), name: 'อาหารใหม่', unit: 'หน่วย', base: 1, k: 0, p: 0, c: 0, f: 0, step: 1, dq: 1, est: false }); render(); } }, '+ เพิ่มรายการอาหาร'));
+  v.append(el('button', { class: 'btn primary', style: 'width:100%;margin-top:14px', onclick: async () => { await enqueue('settings', 'saveSettings', { settings: S.settings }); await flush(); render(); } }, 'บันทึกตั้งค่าขึ้น Drive'));
+  v.append(el('h2', {}, 'เครื่องนี้'), el('div', { class: 'card' }, el('div', { class: 'hint' }, 'รหัสลับเก็บในเครื่องนี้เท่านั้น'), el('button', { class: 'btn', onclick: () => { TOKEN = ''; lsSet('fit-token', ''); render(); } }, 'ลืมรหัสลับในเครื่องนี้')));
+}
+
+/* ================= shell ================= */
+function viewToken(v) {
+  const t = el('input', { type: 'password', placeholder: 'รหัสลับ (TOKEN)', autocomplete: 'off' });
+  v.append(el('h1', {}, 'บันทึกฟิต'), el('div', { class: 'card' }, el('div', { class: 'hint' }, 'ใส่รหัสลับที่คุณตั้งเองใน Apps Script ครั้งเดียวต่อเครื่อง'), t,
+    el('button', { class: 'btn primary', onclick: async () => { if (!t.value.trim()) return; TOKEN = t.value.trim(); lsSet('fit-token', TOKEN); await refresh(); flush(); } }, 'เข้าใช้')));
+}
+function render() {
+  const keep = window.scrollY, v = document.getElementById('app'); v.replaceChildren();
+  const tabs = document.getElementById('tabs'); tabs.replaceChildren();
+  bar();
+  if (!TOKEN) { tabs.style.display = 'none'; viewToken(v); return; }
+  tabs.style.display = '';
+  [['today', 'วันนี้'], ['train', 'ฝึก'], ['week', 'สัปดาห์'], ['photo', 'ปั้นหุ่น'], ['set', 'ตั้งค่า']].forEach(([k, l]) => tabs.append(el('button', { class: S.tab === k ? 'on' : '', onclick: () => { S.tab = k; render(); window.scrollTo(0, 0); } }, l)));
+  ({ today: viewToday, train: viewTrain, week: viewWeek, photo: viewPhotos, set: viewSettings })[S.tab](v);
+  window.scrollTo(0, keep);
+}
+async function refresh() {
+  try {
+    const r = await call('load', { from: addDays(todayStr(), -180) });
+    if (r.settings && !Q.has('settings')) S.settings = Object.assign(defSettings(), r.settings);
+    Object.keys(r.days || {}).forEach(k => { if (!Q.has('day:' + k)) S.days[k] = r.days[k]; });
+    S.photos = r.photos || {}; S.loaded = true; lastErr = ''; if (!lastOk) lastOk = 0;
+    lsSet('fit-cache', JSON.stringify({ settings: S.settings, days: S.days, photos: S.photos }));
+  } catch (e) {
+    lastErr = e.message;
+    if (/รหัสลับ/.test(lastErr)) { TOKEN = ''; lsSet('fit-token', ''); }
+  }
+  render();
+}
+async function boot() {
+  try { const c = JSON.parse(lsGet('fit-cache') || 'null'); if (c) { S.settings = Object.assign(defSettings(), c.settings); S.days = c.days || {}; S.photos = c.photos || {}; } } catch (e) { /* ไม่มีแคช */ }
+  await qLoad(); render();
+  if (TOKEN) { await refresh(); flush(); }
+  window.addEventListener('online', flush);
+  setInterval(() => { if (Q.size && !flushing && TOKEN) flush(); }, 20000);
+}
+boot();
+</script>
+</body>
+</html>

@@ -183,7 +183,7 @@ function enqueue(key, action, args) { return qPut({ key, action, args, ts: Date.
 function bar() {
   const b = document.getElementById('bar'); b.replaceChildren();
   let cls = 'idle', msg;
-  if (!TOKEN) msg = 'ใส่รหัสลับเพื่อเริ่มใช้งาน';
+  if (!TOKEN) { if (lastErr) { cls = 'bad'; msg = '⚠ ' + lastErr + ' · ลองใส่รหัสลับใหม่'; } else msg = 'ใส่รหัสลับเพื่อเริ่มใช้งาน'; }
   else if (Q.size && lastErr) { cls = 'bad'; msg = '⚠ ยังไม่ถึง Drive (' + Q.size + ' รายการรอส่ง) · ' + lastErr + ' · เก็บไว้ในเครื่องแล้ว จะส่งซ้ำเอง'; }
   else if (Q.size || flushing) { cls = 'warn'; msg = 'กำลังส่งขึ้น Drive… (' + Q.size + ' รายการ)'; }
   else if (lastOk) { cls = 'ok'; const d = new Date(lastOk + TZ); msg = '✓ ส่งถึง Drive แล้ว ' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()); }

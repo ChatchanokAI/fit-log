@@ -130,6 +130,7 @@ const EXC = {
   'แขน': [['Bicep curl', 'เคิร์ลหน้าแขน'], ['Hammer curl', 'แฮมเมอร์เคิร์ล'], ['Triceps pushdown', 'กดเคเบิลหลังแขน'], ['Overhead triceps extension', 'หลังแขนเหนือหัว'], ['Skull crusher', 'สกัลครัชเชอร์']]
 };
 const CATS = Object.keys(EXC);
+const catOf = ex => CATS.find(c => EXC[c].some(x => x[0] === ex)) || null;
 
 /* ================= state + offline queue ================= */
 const S = { settings: defSettings(), days: {}, photos: {}, date: todayStr(), tab: 'today', undo: [], fill: false, pd: null, wk: todayStr(), cat: lsGet('fit-cat') || 'อก', pcache: {}, loaded: false };
@@ -400,6 +401,21 @@ function viewPhotos(v) {
       el('button', { class: 'btn small', onclick: async e => { e.target.disabled = true; e.target.textContent = 'กำลังโหลดรูป…'; for (const a of p.angles) { const key = k + a; try { if (!S.pcache[key]) S.pcache[key] = (await call('photoGet', { date: k, angle: a })).dataUrl; box.append(el('div', { class: 'pslot' }, el('img', { src: S.pcache[key], alt: a }), el('b', {}, ANG.find(x => x[0] === a)[1]))); } catch (er) { lastErr = er.message; bar(); } } e.target.remove(); } }, 'ดูรูป'), box)); });
 }
 
+/* ================= import from the old artifact app (copy-all JSON) ================= */
+function importOld(txt) {
+  let inc; try { inc = JSON.parse(txt.trim()); } catch (e) { return 'ข้อมูลที่วางไม่ถูกต้อง ลองคัดลอกมาใหม่'; }
+  let n = 0;
+  Object.keys(inc).forEach(k => {
+    const a = inc[k]; if (!/^\d{4}-\d{2}-\d{2}$/.test(k) || !a || !Array.isArray(a.sets) || !a.sets.length) return;
+    const d = day(k);
+    if (a.sets.length > d.sets.length) d.sets = a.sets.map(x => ({ ex: x.ex, cat: x.cat || catOf(x.ex) || 'อื่นๆ', kg: Number(x.kg), reps: Number(x.reps), rpe: Number(x.rpe), t: x.t || '' }));
+    ['weight', 'waist'].forEach(f => { if ((d[f] === '' || d[f] == null) && a[f] !== '' && a[f] != null) d[f] = a[f]; });
+    if (d.type !== 'train') { d.type = 'train'; d.foods.forEach(e => { if (e.rice && e.meal) e.qty = S.settings.rice.train; }); }
+    touch(d); n++;
+  });
+  return n ? 'นำเข้า ' + n + ' วันแล้ว กำลังส่งขึ้น Drive ดูแถบด้านบน' : 'ไม่พบเซ็ตฝึกในข้อมูลที่วาง';
+}
+
 /* ================= settings ================= */
 function viewSettings(v) {
   const st = S.settings;
@@ -416,6 +432,8 @@ function viewSettings(v) {
     el('div', { class: 'row' }, el('label', { class: 'chk' }, el('input', { type: 'checkbox', checked: fd.est ? 'checked' : null, onchange: e => { fd.est = e.target.checked; } }), 'ค่าประมาณ'), el('button', { class: 'btn small', onclick: () => { if (confirm('ลบ "' + fd.name + '" ออกจากรายการ? (ของที่กินไปแล้วไม่หาย)')) { st.foods.splice(i, 1); render(); } } }, 'ลบ')))));
   v.append(el('button', { class: 'btn', onclick: () => { st.foods.push({ id: 'u' + Date.now(), name: 'อาหารใหม่', unit: 'หน่วย', base: 1, k: 0, p: 0, c: 0, f: 0, step: 1, dq: 1, est: false }); render(); } }, '+ เพิ่มรายการอาหาร'));
   v.append(el('button', { class: 'btn primary', style: 'width:100%;margin-top:14px', onclick: async () => { await enqueue('settings', 'saveSettings', { settings: S.settings }); await flush(); render(); } }, 'บันทึกตั้งค่าขึ้น Drive'));
+  const imp = el('textarea', { rows: '4', placeholder: 'วางข้อมูลที่คัดลอกจากแอปเก่าตรงนี้' }), impMsg = el('div', { class: 'hint' });
+  v.append(el('h2', {}, 'นำเข้าข้อมูลจากแอปเก่า'), el('div', { class: 'card' }, imp, el('button', { class: 'btn primary', onclick: () => { impMsg.textContent = importOld(imp.value); if (/^นำเข้า/.test(impMsg.textContent)) { setTimeout(render, 600); flush(); } } }, 'นำเข้า'), impMsg));
   v.append(el('h2', {}, 'เครื่องนี้'), el('div', { class: 'card' }, el('div', { class: 'hint' }, 'รหัสลับเก็บในเครื่องนี้เท่านั้น'), el('button', { class: 'btn', onclick: () => { TOKEN = ''; lsSet('fit-token', ''); render(); } }, 'ลืมรหัสลับในเครื่องนี้')));
 }
 

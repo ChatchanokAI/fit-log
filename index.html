@@ -260,7 +260,7 @@ function viewToday(v) {
   v.append(el('h2', {}, 'มื้อประจำ ' + mc + '/' + S.settings.meals.length), el('div', { class: 'card' }, S.settings.meals.map(m =>
     el('label', { class: 'chk' + (d.meals[m.id] ? ' on' : '') }, el('input', { type: 'checkbox', checked: d.meals[m.id] ? 'checked' : null, onchange: () => toggleMeal(m) }),
       el('span', {}, el('b', {}, m.name), el('div', { class: 'hint' }, m.items.filter(it => !(it.trainOnly && d.type !== 'train')).map(it => { const f = foodById(it.food); return f ? f.name.replace(/ \(.*\)/, '') + ' ' + (it.rice ? S.settings.rice[d.type] : it.qty) + f.unit : ''; }).join(' + ') + (m.items.some(it => it.trainOnly) && d.type !== 'train' ? ' (วันฝึกเพิ่มข้าวโอ๊ต)' : '')))))));
-  v.append(el('h2', {}, 'อาหารที่กินวันนี้'), foodList(d), addFoodBox());
+  v.append(el('h2', {}, 'อาหารอื่นๆ (ติ๊กถ้ากิน)'), foodTicks(d), el('h2', {}, 'อาหารที่กินวันนี้'), foodList(d), addFoodBox());
   v.append(el('h2', {}, 'อาหารเสริม'), el('div', { class: 'card' }, S.settings.supps.map(([id, nm, ds]) =>
     el('label', { class: 'chk' + (d.supps[id] ? ' on' : '') }, el('input', { type: 'checkbox', checked: d.supps[id] ? 'checked' : null, onchange: e => { if (e.target.checked) d.supps[id] = true; else delete d.supps[id]; touch(d); render(); } }), el('span', {}, el('b', {}, nm), ds ? el('div', { class: 'hint' }, ds) : null)))));
   v.append(el('h2', {}, 'คาร์ดิโอ'), el('div', { class: 'card' }, S.settings.cardio.map(([id, nm]) =>
@@ -287,16 +287,19 @@ function foodList(d) {
       el('button', { 'aria-label': 'เพิ่ม', onclick: () => { snap(); e.qty = r1(e.qty + e.step); touch(d); render(); } }, '+')),
     el('button', { class: 'x', 'aria-label': 'ลบ', onclick: () => { snap(); d.foods.splice(i, 1); if (e.meal && !d.foods.some(x => x.meal === e.meal)) delete d.meals[e.meal]; touch(d); render(); } }, '✕'))));
 }
+function foodTicks(d) {
+  return el('div', { class: 'card' }, S.settings.foods.map(f => {
+    const on = d.foods.some(e => e.fid === f.id && !e.meal);
+    return el('label', { class: 'chk' + (on ? ' on' : '') }, el('input', { type: 'checkbox', checked: on ? 'checked' : null, onchange: () => {
+      snap(); if (on) d.foods = d.foods.filter(e => !(e.fid === f.id && !e.meal)); else d.foods.push(entryFrom(f, f.dq));
+      touch(d); render(); } }),
+      el('span', {}, el('b', {}, f.name.replace(/ \(.*\)/, '')), el('div', { class: 'hint' }, f.dq + ' ' + f.unit + ' · ' + r0(f.dq * f.k / (f.base || 1)) + ' kcal' + (f.est ? ' (ประมาณ)' : ''))));
+  }));
+}
 function addFoodBox() {
-  const sel = el('select', { 'aria-label': 'เลือกอาหาร' }, S.settings.foods.map(f => el('option', { value: f.id }, f.name + (f.est ? ' (ประมาณ)' : ''))));
-  const q = el('input', { type: 'number', inputmode: 'decimal', step: '0.5', 'aria-label': 'จำนวน' });
-  const unit = el('span', { class: 'hint' });
-  const sync = () => { const f = foodById(sel.value); if (f) { q.value = f.dq; unit.textContent = f.unit; } };
-  sel.onchange = sync; sync();
   const cn = el('input', { placeholder: 'ชื่ออาหาร เช่น ข้าวมันไก่' }), ck = el('input', { type: 'number', inputmode: 'decimal', placeholder: 'kcal' }), cp = el('input', { type: 'number', inputmode: 'decimal', placeholder: 'P ก.' }), cc = el('input', { type: 'number', inputmode: 'decimal', placeholder: 'C ก.' }), cf = el('input', { type: 'number', inputmode: 'decimal', placeholder: 'F ก.' });
   const keep = el('input', { type: 'checkbox', style: 'width:24px;min-height:0;height:24px' });
   return el('div', { class: 'card', style: 'margin-top:8px' },
-    el('b', {}, 'เพิ่มจากรายการ'), sel, el('div', { class: 'row' }, q, unit, el('button', { class: 'btn primary', onclick: () => { const f = foodById(sel.value); const n = Number(q.value); if (f && n > 0) addFood(f, n); } }, '+ เพิ่ม')),
     el('b', {}, 'เพิ่มอาหารเอง (ค่าของจานที่กิน)'), cn, el('div', { class: 'row' }, ck, cp, cc, cf),
     el('label', { class: 'row', style: 'gap:8px' }, keep, el('span', { class: 'hint' }, 'บันทึกไว้ใช้ซ้ำ')),
     el('button', { class: 'btn', onclick: () => {
@@ -428,14 +431,16 @@ function viewSettings(v) {
   v.append(el('h2', {}, 'เป้าต่อวัน'));
   [['rest', 'วันพัก'], ['train', 'วันฝึก']].forEach(([t, nm]) => v.append(el('div', { class: 'card', style: 'margin-bottom:8px' }, el('b', {}, nm), el('div', { class: 'row' }, n(st.targets[t], 'k', 'kcal'), n(st.targets[t], 'p', 'โปรตีน'), n(st.targets[t], 'c', 'คาร์บ'), n(st.targets[t], 'f', 'ไขมัน')))));
   v.append(el('h2', {}, 'ข้าวสวยในมื้อประจำ (ก.)'), el('div', { class: 'card' }, el('div', { class: 'row' }, n(st.rice, 'rest', 'วันพัก'), n(st.rice, 'train', 'วันฝึก'))));
-  v.append(el('h2', {}, 'มื้อประจำ (แก้จำนวน)'));
-  st.meals.forEach(m => v.append(el('div', { class: 'card', style: 'margin-bottom:8px' }, el('b', {}, m.name), m.items.filter(it => !it.rice).map(it => { const fd = foodById(it.food); return fd ? n(it, 'qty', fd.name + ' (' + fd.unit + ')') : null; }))));
-  v.append(el('h2', {}, 'รายการอาหาร (ค่าต่อหน่วยฐาน)'));
-  st.foods.forEach((fd, i) => v.append(el('div', { class: 'card', style: 'margin-bottom:8px' },
+  const adv = el('details', { style: 'margin-top:14px' }, el('summary', { class: 'hint' }, 'แก้ค่าอาหารและมื้อประจำ (ไม่ค่อยใช้)'));
+  adv.append(el('h2', {}, 'มื้อประจำ (แก้จำนวน)'));
+  st.meals.forEach(m => adv.append(el('div', { class: 'card', style: 'margin-bottom:8px' }, el('b', {}, m.name), m.items.filter(it => !it.rice).map(it => { const fd = foodById(it.food); return fd ? n(it, 'qty', fd.name + ' (' + fd.unit + ')') : null; }))));
+  adv.append(el('h2', {}, 'รายการอาหาร (ค่าต่อหน่วยฐาน)'));
+  st.foods.forEach((fd, i) => adv.append(el('div', { class: 'card', style: 'margin-bottom:8px' },
     el('label', { class: 'f' }, 'ชื่อ', el('input', { value: fd.name, onchange: e => { fd.name = e.target.value; } })),
     el('div', { class: 'row' }, n(fd, 'base', 'ต่อ (' + fd.unit + ')'), n(fd, 'k', 'kcal'), n(fd, 'p', 'P'), n(fd, 'c', 'C'), n(fd, 'f', 'F')),
     el('div', { class: 'row' }, el('label', { class: 'chk' }, el('input', { type: 'checkbox', checked: fd.est ? 'checked' : null, onchange: e => { fd.est = e.target.checked; } }), 'ค่าประมาณ'), el('button', { class: 'btn small', onclick: () => { if (confirm('ลบ "' + fd.name + '" ออกจากรายการ? (ของที่กินไปแล้วไม่หาย)')) { st.foods.splice(i, 1); render(); } } }, 'ลบ')))));
-  v.append(el('button', { class: 'btn', onclick: () => { st.foods.push({ id: 'u' + Date.now(), name: 'อาหารใหม่', unit: 'หน่วย', base: 1, k: 0, p: 0, c: 0, f: 0, step: 1, dq: 1, est: false }); render(); } }, '+ เพิ่มรายการอาหาร'));
+  adv.append(el('button', { class: 'btn', onclick: () => { st.foods.push({ id: 'u' + Date.now(), name: 'อาหารใหม่', unit: 'หน่วย', base: 1, k: 0, p: 0, c: 0, f: 0, step: 1, dq: 1, est: false }); render(); } }, '+ เพิ่มรายการอาหาร'));
+  v.append(adv);
   v.append(el('button', { class: 'btn primary', style: 'width:100%;margin-top:14px', onclick: async () => { await enqueue('settings', 'saveSettings', { settings: S.settings }); await flush(); render(); } }, 'บันทึกตั้งค่าขึ้น Drive'));
   const imp = el('textarea', { rows: '4', placeholder: 'วางข้อมูลที่คัดลอกจากแอปเก่าตรงนี้' }), impMsg = el('div', { class: 'hint' });
   v.append(el('h2', {}, 'นำเข้าข้อมูลจากแอปเก่า'), el('div', { class: 'card' }, imp, el('button', { class: 'btn primary', onclick: () => { impMsg.textContent = importOld(imp.value); if (/^นำเข้า/.test(impMsg.textContent)) { setTimeout(render, 600); flush(); } } }, 'นำเข้า'), impMsg));

@@ -1,13 +1,13 @@
 {
-  "name": "บันทึกฟิต",
-  "short_name": "ฟิต",
+  "name": "Fitlog",
+  "short_name": "Fitlog",
   "description": "บันทึกอาหาร น้ำหนัก รูป และเซ็ตฝึก ลง Google Drive",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#121a1a",
-  "theme_color": "#1f6b2c",
+  "background_color": "#0b170c",
+  "theme_color": "#0b170c",
   "lang": "th",
   "icons": [
     {

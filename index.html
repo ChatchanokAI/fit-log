@@ -109,6 +109,7 @@ const DEF_FOODS = [
   { id: 'creatine', name: 'ครีเอทีน (จดเฉยๆ)', unit: 'ก.', base: 5, k: 0, p: 0, c: 0, f: 0, step: 5, dq: 5, est: false },
   { id: 'oil', name: 'น้ำมันรำข้าว', unit: 'ช้อนโต๊ะ', base: 1, k: 124, p: 0, c: 0, f: 14, step: 1, dq: 1, est: true },
   { id: 'apple', name: 'แอปเปิ้ล Envy', unit: 'ลูก', base: 1, k: 90, p: 0.5, c: 22, f: 0.3, step: 1, dq: 1, est: true },
+  { id: 'applesm', name: 'แอปเปิ้ล Envy ลูกเล็ก (~150 ก.)', unit: 'ลูก', base: 1, k: 80, p: 0.4, c: 20.5, f: 0.2, step: 1, dq: 1, est: true },
   { id: 'jam', name: 'แยมสตรอเบอร์รี่ เบสท์ฟู้ดส์', unit: 'ช้อนโต๊ะ', base: 1, k: 30, p: 0, c: 8, f: 0, step: 1, dq: 1, est: false },
   { id: 'bread', name: 'ขนมปังโฮลวีตฟาร์มเฮ้าส์', unit: 'แผ่น', base: 1, k: 70, p: 2.5, c: 12, f: 1.25, step: 1, dq: 2, est: false }
 ];
@@ -201,7 +202,7 @@ function bar() {
 }
 
 /* ================= data helpers ================= */
-const SETTINGS_VER = 2;   // bump when default meals/foods change; migrate() adds the new ones without touching the owner's edits elsewhere
+const SETTINGS_VER = 3;   // bump when default meals/foods change; migrate() adds the new ones without touching the owner's edits elsewhere
 function migrate() {
   const st = S.settings, d = defSettings();
   if ((st.sv || 0) >= SETTINGS_VER) return;

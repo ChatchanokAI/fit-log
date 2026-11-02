@@ -101,6 +101,7 @@ const DEF_FOODS = [
   { id: 'duckegg', name: 'ไข่เป็ด', unit: 'ฟอง', base: 1, k: 130, p: 9.2, c: 1, f: 9.6, step: 1, dq: 1, est: true },
   { id: 'wheyrtd', name: 'เวย์พร้อมดื่ม (ร้านสะดวกซื้อ)', unit: 'ขวด', base: 1, k: 160, p: 27, c: 8, f: 3, step: 1, dq: 1, est: true },
   { id: 'meiji', name: 'นม Meiji High Protein ช็อกโกแลต', unit: 'มล.', base: 100, k: 60, p: 9.43, c: 3.71, f: 0.71, step: 50, dq: 350, est: false },
+  { id: 'meijiup', name: 'นมเมจิ อัพ โปรตีน 100 ก. รสจืด', unit: 'มล.', base: 100, k: 60, p: 5, c: 4.5, f: 2.5, step: 25, dq: 125, est: false },
   { id: 'creatine', name: 'ครีเอทีน (จดเฉยๆ)', unit: 'ก.', base: 5, k: 0, p: 0, c: 0, f: 0, step: 5, dq: 5, est: false },
   { id: 'oil', name: 'น้ำมันรำข้าว', unit: 'ช้อนโต๊ะ', base: 1, k: 124, p: 0, c: 0, f: 14, step: 1, dq: 1, est: true },
   { id: 'apple', name: 'แอปเปิ้ล Envy', unit: 'ลูก', base: 1, k: 90, p: 0.5, c: 22, f: 0.3, step: 1, dq: 1, est: true },
@@ -115,7 +116,7 @@ const defSettings = () => ({
     { id: 'b', name: 'มื้อเช้า', items: [{ food: 'chicken', qty: 200 }, { food: 'rice', rice: true }] },
     { id: 'd', name: 'มื้อเย็น', items: [{ food: 'shrimp', qty: 150 }, { food: 'rice', rice: true }, { food: 'duckegg', qty: 1 }, { food: 'egg', qty: 1 }, { food: 'oil', qty: 1 }] },
     { id: 'l', name: 'มื้อสุดท้าย', items: [{ food: 'chicken', qty: 200 }, { food: 'rice', rice: true }] },
-    { id: 's', name: 'ปั่นหลังฝึก', items: [{ food: 'whey', qty: 4 }, { food: 'creatine', qty: 5 }, { food: 'oats', qty: 60, trainOnly: true }] }
+    { id: 's', name: 'ปั่นหลังฝึก', items: [{ food: 'whey', qty: 4 }, { food: 'creatine', qty: 5 }, { food: 'meijiup', qty: 125 }, { food: 'oats', qty: 60, trainOnly: true }] }
   ],
   foods: JSON.parse(JSON.stringify(DEF_FOODS)),
   supps: [['s1', 'Omega-3', '3 เม็ด'], ['s3', 'Vitamin D3 + K2', ''], ['s4', 'Magnesium glycinate', ''], ['s5', 'Astaxanthin', '6 mg'], ['s6', 'CoQ10', '100 mg'], ['s7', 'Citrus bergamot', '1,200 mg'], ['s8', 'Hyaluronic acid + MSM', ''], ['s9', 'Zinc', '15 mg พร้อมมื้ออาหาร']],
@@ -195,7 +196,14 @@ function bar() {
 }
 
 /* ================= data helpers ================= */
-function ensureMeals() { const def = defSettings().meals; def.forEach(m => { if (!S.settings.meals.some(x => x.id === m.id)) S.settings.meals.push(m); }); }
+const SETTINGS_VER = 2;   // bump when default meals/foods change; migrate() adds the new ones without touching the owner's edits elsewhere
+function migrate() {
+  const st = S.settings, d = defSettings();
+  if ((st.sv || 0) >= SETTINGS_VER) return;
+  d.meals.forEach(m => { const i = st.meals.findIndex(x => x.id === m.id); if (i < 0) st.meals.push(m); else if (m.id === 's') st.meals[i] = m; });
+  d.foods.forEach(f => { if (!st.foods.some(x => x.id === f.id)) st.foods.push(f); });
+  st.sv = SETTINGS_VER;
+}
 const foodById = id => S.settings.foods.find(f => f.id === id);
 const newDay = date => ({ date, type: S.settings.trainDays.includes(dow(date)) ? 'train' : 'rest', foods: [], meals: {}, supps: {}, cardio: {}, sets: [], weight: '', waist: '', updated: '' });
 function day(date) { date = date || S.date; if (!S.days[date]) S.days[date] = newDay(date); const d = S.days[date]; d.foods = d.foods || []; d.meals = d.meals || {}; d.supps = d.supps || {}; d.cardio = d.cardio || {}; d.sets = d.sets || []; return d; }
@@ -431,7 +439,7 @@ async function refresh() {
   try {
     const r = await call('load', { from: addDays(todayStr(), -180) });
     if (r.settings && !Q.has('settings')) S.settings = Object.assign(defSettings(), r.settings);
-    ensureMeals();
+    migrate();
     Object.keys(r.days || {}).forEach(k => { if (!Q.has('day:' + k)) S.days[k] = r.days[k]; });
     S.photos = r.photos || {}; S.loaded = true; lastErr = ''; if (!lastOk) lastOk = 0;
     lsSet('fit-cache', JSON.stringify({ settings: S.settings, days: S.days, photos: S.photos }));
@@ -442,7 +450,7 @@ async function refresh() {
   render();
 }
 async function boot() {
-  try { const c = JSON.parse(lsGet('fit-cache') || 'null'); if (c) { S.settings = Object.assign(defSettings(), c.settings); ensureMeals(); S.days = c.days || {}; S.photos = c.photos || {}; } } catch (e) { /* ไม่มีแคช */ }
+  try { const c = JSON.parse(lsGet('fit-cache') || 'null'); if (c) { S.settings = Object.assign(defSettings(), c.settings); migrate(); S.days = c.days || {}; S.photos = c.photos || {}; } } catch (e) { /* ไม่มีแคช */ }
   await qLoad(); render();
   if (TOKEN) { await refresh(); flush(); }
   window.addEventListener('online', flush);

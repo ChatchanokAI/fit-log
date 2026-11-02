@@ -114,7 +114,8 @@ const defSettings = () => ({
   meals: [
     { id: 'b', name: 'มื้อเช้า', items: [{ food: 'chicken', qty: 200 }, { food: 'rice', rice: true }] },
     { id: 'd', name: 'มื้อเย็น', items: [{ food: 'shrimp', qty: 150 }, { food: 'rice', rice: true }, { food: 'duckegg', qty: 1 }, { food: 'egg', qty: 1 }, { food: 'oil', qty: 1 }] },
-    { id: 'l', name: 'มื้อสุดท้าย', items: [{ food: 'chicken', qty: 200 }, { food: 'rice', rice: true }] }
+    { id: 'l', name: 'มื้อสุดท้าย', items: [{ food: 'chicken', qty: 200 }, { food: 'rice', rice: true }] },
+    { id: 's', name: 'ปั่นหลังฝึก', items: [{ food: 'whey', qty: 4 }, { food: 'creatine', qty: 5 }, { food: 'oats', qty: 60, trainOnly: true }] }
   ],
   foods: JSON.parse(JSON.stringify(DEF_FOODS)),
   supps: [['s1', 'Omega-3', '3 เม็ด'], ['s3', 'Vitamin D3 + K2', ''], ['s4', 'Magnesium glycinate', ''], ['s5', 'Astaxanthin', '6 mg'], ['s6', 'CoQ10', '100 mg'], ['s7', 'Citrus bergamot', '1,200 mg'], ['s8', 'Hyaluronic acid + MSM', ''], ['s9', 'Zinc', '15 mg พร้อมมื้ออาหาร']],
@@ -194,6 +195,7 @@ function bar() {
 }
 
 /* ================= data helpers ================= */
+function ensureMeals() { const def = defSettings().meals; def.forEach(m => { if (!S.settings.meals.some(x => x.id === m.id)) S.settings.meals.push(m); }); }
 const foodById = id => S.settings.foods.find(f => f.id === id);
 const newDay = date => ({ date, type: S.settings.trainDays.includes(dow(date)) ? 'train' : 'rest', foods: [], meals: {}, supps: {}, cardio: {}, sets: [], weight: '', waist: '', updated: '' });
 function day(date) { date = date || S.date; if (!S.days[date]) S.days[date] = newDay(date); const d = S.days[date]; d.foods = d.foods || []; d.meals = d.meals || {}; d.supps = d.supps || {}; d.cardio = d.cardio || {}; d.sets = d.sets || []; return d; }
@@ -206,10 +208,16 @@ function addFood(food, qty, extra) { snap(); const d = day(); d.foods.push(entry
 function toggleMeal(m) {
   snap(); const d = day();
   if (d.meals[m.id]) { d.foods = d.foods.filter(e => e.meal !== m.id); delete d.meals[m.id]; }
-  else { m.items.forEach(it => { const f = foodById(it.food); if (f) d.foods.push(entryFrom(f, it.rice ? S.settings.rice[d.type] : it.qty, { meal: m.id, rice: !!it.rice })); }); d.meals[m.id] = true; }
+  else { m.items.forEach(it => { if (it.trainOnly && d.type !== 'train') return; const f = foodById(it.food); if (f) d.foods.push(entryFrom(f, it.rice ? S.settings.rice[d.type] : it.qty, { meal: m.id, rice: !!it.rice, trainOnly: !!it.trainOnly })); }); d.meals[m.id] = true; }
   touch(d); render();
 }
-function setType(t) { snap(); const d = day(); d.type = t; d.foods.forEach(e => { if (e.rice && e.meal) e.qty = S.settings.rice[t]; }); touch(d); render(); }
+function setType(t) {
+  snap(); const d = day(); d.type = t;
+  d.foods.forEach(e => { if (e.rice && e.meal) e.qty = S.settings.rice[t]; });
+  if (t !== 'train') d.foods = d.foods.filter(e => !e.trainOnly);            // train-only items (oats in the shake) leave on rest days
+  else S.settings.meals.forEach(m => { if (d.meals[m.id]) m.items.forEach(it => { if (it.trainOnly && !d.foods.some(e => e.meal === m.id && e.fid === it.food)) { const f = foodById(it.food); if (f) d.foods.push(entryFrom(f, it.qty, { meal: m.id, trainOnly: true })); } }); });
+  touch(d); render();
+}
 
 /* ================= today ================= */
 function viewToday(v) {
@@ -237,7 +245,7 @@ function viewToday(v) {
   const mc = S.settings.meals.filter(m => d.meals[m.id]).length;
   v.append(el('h2', {}, 'มื้อประจำ ' + mc + '/' + S.settings.meals.length), el('div', { class: 'card' }, S.settings.meals.map(m =>
     el('label', { class: 'chk' + (d.meals[m.id] ? ' on' : '') }, el('input', { type: 'checkbox', checked: d.meals[m.id] ? 'checked' : null, onchange: () => toggleMeal(m) }),
-      el('span', {}, el('b', {}, m.name), el('div', { class: 'hint' }, m.items.map(it => { const f = foodById(it.food); return f ? f.name.replace(/ \(.*\)/, '') + ' ' + (it.rice ? S.settings.rice[d.type] : it.qty) + f.unit : ''; }).join(' + ')))))));
+      el('span', {}, el('b', {}, m.name), el('div', { class: 'hint' }, m.items.filter(it => !(it.trainOnly && d.type !== 'train')).map(it => { const f = foodById(it.food); return f ? f.name.replace(/ \(.*\)/, '') + ' ' + (it.rice ? S.settings.rice[d.type] : it.qty) + f.unit : ''; }).join(' + ') + (m.items.some(it => it.trainOnly) && d.type !== 'train' ? ' (วันฝึกเพิ่มข้าวโอ๊ต)' : '')))))));
   v.append(el('h2', {}, 'อาหารที่กินวันนี้'), foodList(d), addFoodBox());
   v.append(el('h2', {}, 'อาหารเสริม'), el('div', { class: 'card' }, S.settings.supps.map(([id, nm, ds]) =>
     el('label', { class: 'chk' + (d.supps[id] ? ' on' : '') }, el('input', { type: 'checkbox', checked: d.supps[id] ? 'checked' : null, onchange: e => { if (e.target.checked) d.supps[id] = true; else delete d.supps[id]; touch(d); render(); } }), el('span', {}, el('b', {}, nm), ds ? el('div', { class: 'hint' }, ds) : null)))));
@@ -346,7 +354,7 @@ function viewWeek(v) {
   v.append(el('div', { class: 'row' }, el('button', { class: 'btn', onclick: () => { S.wk = addDays(S.wk, -7); render(); } }, '‹'), el('div', { class: 'hint', style: 'text-align:center' }, label(mon) + ' – ' + label(addDays(mon, 6))), el('button', { class: 'btn', onclick: () => { S.wk = addDays(S.wk, 7); render(); } }, '›')));
   v.append(el('div', { class: 'card', style: 'margin-top:8px' }, el('div', {}, 'น้ำหนักเฉลี่ยสัปดาห์นี้ ', el('b', {}, a == null ? '—' : r1(a) + ' กก.')), el('div', { class: 'hint' }, 'สัปดาห์ก่อน ' + (b == null ? '—' : r1(b) + ' กก.') + (a != null && b != null ? ' · ต่างกัน ' + (a - b > 0 ? '+' : '') + r1(a - b) + ' กก.' : ''))));
   const rows = []; for (let i = 0; i < 7; i++) { const k = wk(i), d = S.days[k]; const t = d ? sum(d) : null;
-    rows.push(el('tr', {}, el('td', {}, label(k)), el('td', {}, d && d.weight !== '' ? d.weight : '—'), el('td', {}, t && d.foods.length ? fmt(t.k) : '—'), el('td', {}, t && d.foods.length ? r0(t.p) : '—'), el('td', {}, d ? Object.keys(d.meals || {}).length + '/3' : '—'), el('td', {}, d ? (d.type === 'train' ? 'ฝึก' : 'พัก') + (d.sets && d.sets.length ? ' ' + d.sets.length + 'เซ็ต' : '') + (Object.values(d.cardio || {}).some(Boolean) ? ' +คาร์ดิโอ' : '') : '—'))); }
+    rows.push(el('tr', {}, el('td', {}, label(k)), el('td', {}, d && d.weight !== '' ? d.weight : '—'), el('td', {}, t && d.foods.length ? fmt(t.k) : '—'), el('td', {}, t && d.foods.length ? r0(t.p) : '—'), el('td', {}, d ? Object.keys(d.meals || {}).length + '/' + S.settings.meals.length : '—'), el('td', {}, d ? (d.type === 'train' ? 'ฝึก' : 'พัก') + (d.sets && d.sets.length ? ' ' + d.sets.length + 'เซ็ต' : '') + (Object.values(d.cardio || {}).some(Boolean) ? ' +คาร์ดิโอ' : '') : '—'))); }
   v.append(el('h2', {}, 'รายวัน'), el('div', { class: 'card', style: 'overflow-x:auto' }, el('table', {}, el('tr', {}, ['วัน', 'น้ำหนัก', 'kcal', 'โปรตีน', 'มื้อ', 'ฝึก'].map(h => el('th', {}, h))), rows)));
 }
 
@@ -423,6 +431,7 @@ async function refresh() {
   try {
     const r = await call('load', { from: addDays(todayStr(), -180) });
     if (r.settings && !Q.has('settings')) S.settings = Object.assign(defSettings(), r.settings);
+    ensureMeals();
     Object.keys(r.days || {}).forEach(k => { if (!Q.has('day:' + k)) S.days[k] = r.days[k]; });
     S.photos = r.photos || {}; S.loaded = true; lastErr = ''; if (!lastOk) lastOk = 0;
     lsSet('fit-cache', JSON.stringify({ settings: S.settings, days: S.days, photos: S.photos }));
@@ -433,7 +442,7 @@ async function refresh() {
   render();
 }
 async function boot() {
-  try { const c = JSON.parse(lsGet('fit-cache') || 'null'); if (c) { S.settings = Object.assign(defSettings(), c.settings); S.days = c.days || {}; S.photos = c.photos || {}; } } catch (e) { /* ไม่มีแคช */ }
+  try { const c = JSON.parse(lsGet('fit-cache') || 'null'); if (c) { S.settings = Object.assign(defSettings(), c.settings); ensureMeals(); S.days = c.days || {}; S.photos = c.photos || {}; } } catch (e) { /* ไม่มีแคช */ }
   await qLoad(); render();
   if (TOKEN) { await refresh(); flush(); }
   window.addEventListener('online', flush);
